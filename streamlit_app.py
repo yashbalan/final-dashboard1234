@@ -1967,23 +1967,6 @@ with tab5:
             st.plotly_chart(fig)
             st.write("\n")
 
-        # filtered_df['KM Travelled for Session'] = filtered_df['KM Travelled for Session'].replace(
-        #     '', np.nan)
-        # filtered_df['KM Travelled for Session'] = filtered_df['KM Travelled for Session'].astype(
-        #     float)
-        # average_kms = filtered_df.groupby(
-        #     'type')['KM Travelled for Session'].mean().reset_index().round(1)
-
-        # fig = go.Figure(
-        #     data=[go.Bar(x=average_kms['type'], y=average_kms['KM Travelled for Session'], text=average_kms['KM Travelled for Session'], textposition='outside')])
-        # fig.update_layout(xaxis_title='Subscription', yaxis_title='Avg KMs Travelled per Session',
-        #                   title='Average KMs Travelled Per Session by Subscription Type', width=525, height=525, xaxis=dict(tickangle=-45))
-
-        # with col2:
-
-        #     st.plotly_chart(fig)
-        #     st.write("\n")
-
         average_duration = filtered_df.groupby(
             'type')['Duration'].mean().reset_index().round(1)
         fig = go.Figure(
