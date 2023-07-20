@@ -1,0 +1,1 @@
+melted_df['date'] = pd.to_datetime(melted_df['date'], format='%d/%m')
