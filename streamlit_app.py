@@ -218,7 +218,7 @@ merged_df = pd.merge(merged_df, grouped_df, on="uid", how="left")
 
 merged_df = merged_df.drop(["Actual SoC_Start_x", "Actual Soc_End_x"], axis=1)
 
-merged_df = merged_df.rename(columns={"optChargeStartTime_x": "optChargeStartTime", "optChargeEndTime_x": "optChargeEndTime",
+merged_df = merged_df.rename(columns={"location.lat_y": "location.lat", "location.long_y": "location.long", "optChargeStartTime_x": "optChargeStartTime", "optChargeEndTime_x": "optChargeEndTime",
                              "Actual SoC_Start_y": "Actual SoC_Start", "Actual Soc_End_y": "Actual Soc_End", "Customer Name_x": "Customer Name", "canceled_x": "canceled"})
 
 merged_df = merged_df.drop_duplicates(subset="uid", keep="first")
@@ -249,14 +249,15 @@ merged_df["Actual SoC_Start"] = merged_df["Actual SoC_Start"].str.rstrip("%")
 merged_df["Actual Soc_End"] = merged_df["Actual Soc_End"].str.rstrip("%")
 
 requiredColumns = ['uid', 'Actual Date', 'Customer Name', 'EPOD Name', 'Actual OPERATOR NAME', 'Duration', 'Day',
-                   'E-pod Arrival Time @ Session location', 'Actual SoC_Start', 'Actual Soc_End', 'Booking Session time', 'Customer Location City', 'canceled', 'cancelledPenalty', 't-15_kpi', 'type', 'KWH Pumped Per Session']
+                   'E-pod Arrival Time @ Session location', 'Actual SoC_Start', 'Actual Soc_End', 'Booking Session time', 'Customer Location City', 'canceled', 'cancelledPenalty', 't-15_kpi', 'type', 'KWH Pumped Per Session', 'location.lat', 'location.long']
 
 df_june = df_june[requiredColumns]
 merged_df = merged_df[requiredColumns]
+merged_df.to_csv('merged.csv')
 dfs = [merged_df, df_june]
 merged_df = pd.concat(dfs, ignore_index=True)
 merged_df = merged_df[merged_df['Customer Location City'].isin(cities)]
-merged_df.to_csv('merged.csv')
+
 st.set_page_config(page_title="Hopcharge Dashboard",
                    page_icon=":bar_chart:", layout="wide")
 
@@ -286,7 +287,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-df_june.to_csv('junedata.csv')
 
 df_vehicles_june = df_vehicles_june.drop(columns=["Number", "Year", "Make", "Model",
                                                   "Fuel Type", "Driver Name", "Driver Number", "Total"], axis=1)
