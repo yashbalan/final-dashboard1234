@@ -14,13 +14,18 @@ from streamlit_folium import folium_static
 from folium import plugins
 
 
-df1 = pd.DataFrame(pd.read_csv('Ops_Session_Data.csv'))
-df2 = pd.DataFrame(pd.read_csv('past_bookings_May23.csv'))
+df1 = pd.DataFrame(pd.read_csv(
+    'data/Ops_Session_Data.csv', encoding='latin1'))
+df2 = pd.DataFrame(pd.read_csv(
+    'data/past_bookings_May23.csv', encoding='latin1'))
 
-df3 = pd.DataFrame(pd.read_csv('possible_subscribers_May23.csv'))
-df_june = pd.DataFrame(pd.read_csv('June Roundtable data.xlsx - Round table.csv'))
+df3 = pd.DataFrame(pd.read_csv(
+    'data/possible_subscribers_May23.csv', encoding='latin1'))
+df_june = pd.DataFrame(pd.read_csv(
+    'data/June Roundtable data.xlsx - Round table.csv', encoding='latin1'))
 
-df_vehicles_june = pd.DataFrame(pd.read_csv('Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv'))
+df_vehicles_june = pd.DataFrame(pd.read_csv(
+    'data/Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv', encoding='latin1'))
 
 df_june.rename(
     columns={'Reach date ': 'Reach date'}, inplace=True)
