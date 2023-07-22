@@ -9,20 +9,18 @@ import seaborn as sns
 import re
 import matplotlib.pyplot as plt
 from PIL import Image
+import folium
+from streamlit_folium import folium_static
+from folium import plugins
 
 
-df1 = pd.DataFrame(pd.read_csv(
-    'data/Ops_Session_Data.csv', encoding='latin1'))
-df2 = pd.DataFrame(pd.read_csv(
-    'data/past_bookings_May23.csv', encoding='latin1'))
+df1 = pd.DataFrame(pd.read_csv(r'Ops_Session_Data.csv', encoding='latin1'))
+df2 = pd.DataFrame(pd.read_csv(r'past_bookings_May23.csv', encoding='latin1'))
 
-df3 = pd.DataFrame(pd.read_csv(
-    'data/possible_subscribers_May23.csv', encoding='latin1'))
-df_june = pd.DataFrame(pd.read_csv(
-    'data/June Roundtable data.xlsx - Round table.csv', encoding='latin1'))
+df3 = pd.DataFrame(pd.read_csv(r'possible_subscribers_May23.csv', encoding='latin1'))
+df_june = pd.DataFrame(pd.read_csv(r'June Roundtable data.xlsx - Round table.csv', encoding='latin1'))
 
-df_vehicles_june = pd.DataFrame(pd.read_csv(
-    'data/Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv', encoding='latin1'))
+df_vehicles_june = pd.DataFrame(pd.read_csv(r'Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv', encoding='latin1'))
 
 df_june.rename(
     columns={'Reach date ': 'Reach date'}, inplace=True)
@@ -67,7 +65,7 @@ df_june['updated'] = pd.to_datetime(
 df_june['fromTime'] = pd.to_datetime(
     df_june['fromTime'])
 df_june['Reach Time'] = pd.to_datetime(
-    df_june['Reach Time'], format='%Y-%m-%d %H:%M')
+    df_june['Reach Time'], format='mixed')
 
 
 df1["KM Travelled for Session"] = df1["KM Travelled for Session"].str.replace(
@@ -76,19 +74,29 @@ df1['EPOD Name'] = df1['EPOD Name'].str.extract(
     r'^(.*?)\s+\(.*\)$')[0]
 df1['EPOD Name'] = df1['EPOD Name'].fillna('EPOD-006')
 
-time_diff = df2['fromTime'] - df2['updated']
-time_diff_hours = time_diff / timedelta(hours=1)
+df2['time_diff'] = df2['fromTime'] - df2['updated']
+df2['time_diff_hours'] = df2['time_diff'] / timedelta(hours=1)
 
+# Initialize the 'cancelledPenalty' column with zeros
 df2['cancelledPenalty'] = 0
-df2.loc[(df2['canceled'] == True) & (
-    time_diff_hours < 2), 'cancelledPenalty'] = 1
 
-time_diff = df_june['fromTime'] - df_june['updated']
-time_diff_hours = time_diff / timedelta(hours=1)
+# Set 'cancelledPenalty' to 1 for rows where 'canceled' is True and 'time_diff_hours' is less than 2
+df2.loc[(df2['canceled'] == True) & (df2['time_diff_hours'] < 2), 'cancelledPenalty'] = 1
 
+# Optionally, you can drop the 'time_diff' column if you don't need it anymore
+df2.drop(columns=['time_diff'], inplace=True)
+
+df_june['time_diff'] = df_june['fromTime'] - df_june['updated']
+df_june['time_diff_hours'] = df_june['time_diff'] / timedelta(hours=1)
+
+# Initialize the 'cancelledPenalty' column with zeros
 df_june['cancelledPenalty'] = 0
-df_june.loc[(df_june['canceled'] == True) & (
-    time_diff_hours < 2), 'cancelledPenalty'] = 1
+
+# Set 'cancelledPenalty' to 1 for rows where 'canceled' is True and 'time_diff_hours' is less than 2
+df_june.loc[(df_june['canceled'] == True) & (df_june['time_diff_hours'] < 2), 'cancelledPenalty'] = 1
+
+# Optionally, you can drop the 'time_diff' column if you don't need it anymore
+df_june.drop(columns=['time_diff'], inplace=True)
 
 df1.drop(columns=['Customer Location City'], inplace=True)
 df2.rename(columns={'location.state': 'Customer Location City'}, inplace=True)
@@ -253,10 +261,12 @@ requiredColumns = ['uid', 'Actual Date', 'Customer Name', 'EPOD Name', 'Actual O
 
 df_june = df_june[requiredColumns]
 merged_df = merged_df[requiredColumns]
+
 merged_df.to_csv('merged.csv')
 dfs = [merged_df, df_june]
 merged_df = pd.concat(dfs, ignore_index=True)
 merged_df = merged_df[merged_df['Customer Location City'].isin(cities)]
+
 
 st.set_page_config(page_title="Hopcharge Dashboard",
                    page_icon=":bar_chart:", layout="wide")
@@ -331,11 +341,13 @@ vehicle_df.to_csv('melted.csv')
 
 df = merged_df
 
-image = Image.open('Hpcharge.png')
+#merged_df.to_csv(r"C:\Users\DELL\PycharmProjects\Excel\merdf2.csv")
+
+image = Image.open(r'Hpcharge.png')
 col1, col2, col3, col4, col5 = st.columns(5)
 col3.image(image, use_column_width=False)
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Executive Dashboard", "Charge Pattern Insights", "EPod Stats", "Operator Stats", "Subscription Insights"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Executive Dashboard", "Charge Pattern Insights", "EPod Stats", "Operator Stats", "Subscription Insights", "Geographical Insights"])
 
 
 with tab1:
@@ -355,10 +367,29 @@ with tab1:
     end_date = pd.to_datetime(end_date)
     filtered_df = df[(df['Actual Date'] >= start_date)
                      & (df['Actual Date'] <= end_date)]
+
+
+
+
     filtered_df['Actual SoC_Start'] = pd.to_numeric(
         filtered_df['Actual SoC_Start'], errors='coerce')
     filtered_df['Actual Soc_End'] = pd.to_numeric(
         filtered_df['Actual Soc_End'], errors='coerce')
+
+
+    # Process Actual SoC_Start and Actual Soc_End columns
+    def process_soc(value):
+        try:
+            numeric_value = pd.to_numeric(value, errors='coerce')
+            if numeric_value > 100:
+                return int(str(numeric_value)[:2])  # Extract first 2 digits
+            return numeric_value
+        except:
+            return np.nan
+
+
+    filtered_df['Actual SoC_Start'] = filtered_df['Actual SoC_Start'].apply(process_soc)
+    filtered_df['Actual Soc_End'] = filtered_df['Actual Soc_End'].apply(process_soc)
 
     record_count_df = filtered_df.groupby(
         ['EPOD Name', 't-15_kpi']).size().reset_index(name='Record Count')
@@ -367,10 +398,10 @@ with tab1:
         name='Record Count')
     record_count_df = record_count_df.sort_values(by='Record Count')
     city_count_df = city_count_df.sort_values(by='Record Count')
-    start_soc_stats = filtered_df.groupby('EPOD Name')['Actual SoC_Start'].agg([
+    start_soc_stats = filtered_df.dropna(subset=['Actual SoC_Start']).groupby('EPOD Name')['Actual SoC_Start'].agg([
         'max', 'min', 'mean', 'median'])
 
-    end_soc_stats = filtered_df.groupby('EPOD Name')['Actual Soc_End'].agg([
+    end_soc_stats = filtered_df.dropna(subset=['Actual Soc_End']).groupby('EPOD Name')['Actual Soc_End'].agg([
         'max', 'min', 'mean', 'median'])
     start_soc_stats = start_soc_stats.sort_values(by='EPOD Name')
     end_soc_stats = end_soc_stats.sort_values(by='EPOD Name')
@@ -623,10 +654,13 @@ with tab1:
         st.plotly_chart(end_soc_median_gauge)
 
     for city in allowed_cities:
-        city_start_soc_stats = filtered_df[filtered_df['Customer Location City'] == city]['Actual SoC_Start'].agg([
-                                                                                                                  'max', 'min', 'mean', 'median'])
-        city_end_soc_stats = filtered_df[filtered_df['Customer Location City'] == city]['Actual Soc_End'].agg([
-                                                                                                              'max', 'min', 'mean', 'median'])
+        city_filtered_df = filtered_df[filtered_df['Customer Location City'] == city]
+
+        city_start_soc_stats = city_filtered_df.dropna(subset=['Actual SoC_Start'])['Actual SoC_Start'].agg([
+            'max', 'min', 'mean', 'median'])
+
+        city_end_soc_stats = city_filtered_df.dropna(subset=['Actual Soc_End'])['Actual Soc_End'].agg([
+            'max', 'min', 'mean', 'median'])
 
         city_start_soc_max = city_start_soc_stats['max'].max()
         city_start_soc_min = city_start_soc_stats['min'].min()
@@ -864,37 +898,49 @@ with tab2:
         except KeyError:
             return 0
 
+
     def count_sessions(df):
         return df.shape[0]
 
+
     def count_cancelled(df):
         try:
-            return df.groupby(['canceled_x']).size()[True]
+            return df[df['canceled'] == True].shape[0]
         except KeyError:
             return 0
 
-    def count_cancelledPenalty(df):
+
+    def count_cancelled_with_penalty(df):
         try:
-            return df.groupby(['cancelledPenalty']).size()[1]
+            return df[df['cancelledPenalty'] == 1].shape[0]
         except KeyError:
             return 0
+
 
     total_sessions = count_sessions(filtered_data)
     cancelled_sessions = count_cancelled(filtered_data)
-    cancelled_sessions_with_penalty = count_cancelledPenalty(filtered_data)
-    labels = ['Total Sessions', 'Cancelled Sessions',
-              'Cancelled with Penalty']
-    values = [total_sessions-cancelled_sessions-cancelled_sessions_with_penalty, cancelled_sessions,
-              cancelled_sessions_with_penalty]
+    cancelled_sessions_with_penalty = count_cancelled_with_penalty(filtered_data)
+
+    # Calculate Cancelled Sessions without Penalty (cancelled but without penalty)
+    cancelled_sessions_without_penalty = cancelled_sessions
+
+
+
+    labels = ['Actual Sessions', 'Cancelled Sessions', 'Cancelled with Penalty']
+    values = [total_sessions, cancelled_sessions_without_penalty, cancelled_sessions_with_penalty]
     colors = ['blue', 'orange', 'red']
 
     fig = go.Figure(
-        data=[go.Pie(labels=labels, values=values, hole=0.7, textinfo='label+value+percent', marker=dict(colors=colors))])
+        data=[go.Pie(labels=labels, values=values, hole=0.7, textinfo='label+percent', marker=dict(colors=colors))])
+
     fig.update_layout(
-        showlegend=True, width=500)
+        showlegend=True, width=500,
+    )
     fig.add_annotation(
         text=f"Overall Sessions: {total_sessions}", x=0.5, y=0.5, font_size=15, showarrow=False)
+
     fig.update_layout(width=500, height=400)
+
     with col1:
         st.plotly_chart(fig)
 
@@ -1090,35 +1136,49 @@ with tab2:
             except KeyError:
                 return 0
 
+
         def count_sessions(df):
             return df.shape[0]
 
+
         def count_cancelled(df):
             try:
-                return df.groupby(['canceled_x']).size()[True]
+                return df[df['canceled'] == True].shape[0]
             except KeyError:
                 return 0
 
-        def count_cancelledPenalty(df):
+
+        def count_cancelled_with_penalty(df):
             try:
-                return df.groupby(['cancelledPenalty']).size()[1]
+                return df[df['cancelledPenalty'] == 1].shape[0]
             except KeyError:
                 return 0
+
+
         total_sessions = count_sessions(filtered_data)
         cancelled_sessions = count_cancelled(filtered_data)
-        cancelled_sessions_with_penalty = count_cancelledPenalty(filtered_data)
-        labels = ['Total Sessions', 'Cancelled Sessions',
-                  'Cancelled with Penalty']
-        values = [total_sessions-cancelled_sessions-cancelled_sessions_with_penalty, cancelled_sessions,
-                  cancelled_sessions_with_penalty]
+        cancelled_sessions_with_penalty = count_cancelled_with_penalty(filtered_data)
+
+        # Calculate Cancelled Sessions without Penalty (cancelled but without penalty)
+        cancelled_sessions_without_penalty = cancelled_sessions
+
+
+        labels = ['Actual Sessions', 'Cancelled Sessions', 'Cancelled with Penalty']
+        values = [total_sessions, cancelled_sessions_without_penalty, cancelled_sessions_with_penalty]
         colors = ['blue', 'orange', 'red']
+
         fig = go.Figure(
-            data=[go.Pie(labels=labels, values=values, hole=0.7, textinfo='label+value+percent', marker=dict(colors=colors))])
+            data=[go.Pie(labels=labels, values=values, hole=0.7, textinfo='label+percent', marker=dict(colors=colors))])
+
         fig.update_layout(
-            showlegend=True, width=500)
+            showlegend=True, width=500,
+        )
+
         fig.add_annotation(
             text=f"Overall Sessions: {total_sessions}", x=0.5, y=0.5, font_size=15, showarrow=False)
+
         fig.update_layout(width=500, height=400)
+
         with col1:
             st.plotly_chart(fig)
 
@@ -1252,46 +1312,71 @@ with tab3:
     record_count_df = record_count_df.sort_values('EPOD Name')
     y_axis_range = [0, record_count_df['Record Count'].max() * 1.2]
 
-    total_duration = filtered_data.groupby(
-        'EPOD Name')['Duration'].sum().reset_index()
+    # Calculate total duration per EPod per session
+    total_duration = filtered_data.groupby('EPOD Name')['Duration'].sum().reset_index()
 
-    average_duration = filtered_data.groupby(
-        'EPOD Name')['Duration'].mean().reset_index().round(1)
+    # Calculate average duration per EPod per session
+    average_duration = filtered_data.groupby('EPOD Name')['Duration'].mean().reset_index().round(1)
 
-    avgdur = average_duration['Duration'].mean().round(2)
+    # Calculate total number of sessions per EPod
+    total_sessions_per_epod = filtered_data.groupby('EPOD Name')['Duration'].count().reset_index()
+    total_sessions_per_epod = total_sessions_per_epod.rename(columns={'Duration': 'Record Count'})
 
+    # Calculate average sessions per EPod
+    avg_sessions = total_duration.merge(total_sessions_per_epod, on='EPOD Name')
+
+    # Calculate average duration per EPod per session
+    avg_duration_per_session = average_duration['Duration'] / avg_sessions['Record Count']
+
+    # Calculate average duration per session across all EPods
+    avgdur = avg_duration_per_session.mean().round(2)
+
+    # Display Average Duration/Session
     with col5:
         st.markdown("Average Duration/Session")
-        st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                    str(avgdur)+"</span>", unsafe_allow_html=True)
+        st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
+                    str(avgdur) + "</span>", unsafe_allow_html=True)
 
-    filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].replace(
-        '', np.nan)
-    filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].astype(
-        float)
-    average_kms = filtered_data_vehicle.groupby(
-        'EPOD Name')['KM Travelled for Session'].mean().reset_index().round(1)
-    avgkm = average_kms['KM Travelled for Session'].mean().round(2)
+    # Filter and process data for vehicle DataFrame
+    filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].replace('',
+                                                                                                                  np.nan)
+    filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].astype(float)
+
+    # Calculate average kilometers per EPod per session
+    average_kms = filtered_data_vehicle.groupby('EPOD Name')['KM Travelled for Session'].mean().reset_index().round(1)
+
+    # Calculate average kilometers per EPod per session
+    avg_kms_per_session = average_kms['KM Travelled for Session'] / avg_sessions['Record Count']
+
+    # Calculate average kilometers per session across all EPods
+    avgkm = avg_kms_per_session.mean().round(2)
+
+    # Display Average Kms/EPod
     with col4:
         st.markdown("Average Kms/EPod")
-        st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                    str(avgkm)+"</span>", unsafe_allow_html=True)
+        st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
+                    str(avgkm) + "</span>", unsafe_allow_html=True)
 
-    filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].replace(
-        '', np.nan)
-
+    # Filter and process data for 'filtered_data' DataFrame
+    filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].replace('', np.nan)
     filtered_data = filtered_data[filtered_data['KWH Pumped Per Session'] != '#VALUE!']
-
-    filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].astype(
-        float)
+    filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].astype(float)
     filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].abs()
-    average_kwh = filtered_data.groupby(
-        'EPOD Name')['KWH Pumped Per Session'].mean().reset_index().round(1)
-    avgkwh = average_kwh['KWH Pumped Per Session'].mean().round(2)
+
+    # Calculate average kWh per EPod per session
+    average_kwh = filtered_data.groupby('EPOD Name')['KWH Pumped Per Session'].mean().reset_index().round(1)
+
+    # Calculate average kWh per EPod per session
+    avg_kwh_per_session = average_kwh['KWH Pumped Per Session'] / avg_sessions['Record Count']
+
+    # Calculate average kWh per session across all EPods
+    avgkwh = avg_kwh_per_session.mean().round(2)
+
+    # Display Average kWh/EPod
     with col6:
         st.markdown("Average kWh/EPod")
-        st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                    str(avgkwh)+"</span>", unsafe_allow_html=True)
+        st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
+                    str(avgkwh) + "</span>", unsafe_allow_html=True)
 
     fig = go.Figure()
     for color, kpi_group in record_count_df.groupby('Color'):
@@ -1440,6 +1525,7 @@ with tab3:
         if 'All' in EPod:
             EPod = epods
 
+
         filtered_data = filtered_data[
             (filtered_data['EPOD Name'].isin(EPod))]
 
@@ -1447,7 +1533,8 @@ with tab3:
             (filtered_data['Customer Location City'] == city)]
         filtered_data_vehicle = vehicle_df[(vehicle_df['Actual Date'] >= start_date)
                                            & (vehicle_df['Actual Date'] <= end_date)]
-
+        filtered_data_vehicle = filtered_data_vehicle[
+            (filtered_data_vehicle['Customer Location City'] == city)]
         filtered_data_vehicle = filtered_data_vehicle[filtered_data_vehicle['EPOD Name'].isin(
             EPod)]
         record_count_df = filtered_data.groupby(
@@ -1465,24 +1552,35 @@ with tab3:
         average_duration = filtered_data.groupby(
             'EPOD Name')['Duration'].mean().reset_index().round(1)
 
-        avgdur = average_duration['Duration'].mean().round(2)
+        # Calculate Average Sessions
+        avg_sessions = record_count_df.groupby('EPOD Name')['Record Count'].mean().reset_index()
+
+        # Calculate average duration per EPod per session
+        avg_duration_per_session = average_duration['Duration'] / avg_sessions['Record Count']
+
+        # Calculate average duration per session across all EPods
+        avgdur = avg_duration_per_session.mean().round(2)
 
         with col5:
-            st.markdown("Average Duration/Session")
-            st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                        str(avgdur)+"</span>", unsafe_allow_html=True)
+            st.markdown("Average Duration/EPod per Session")
+            st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
+                        str(avg_duration_per_session.mean().round(2)) + "</span>", unsafe_allow_html=True)
 
         filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].replace(
             '', np.nan)
         filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].astype(
             float)
+
+        # Calculate Average KM per EPod per Session
         average_kms = filtered_data_vehicle.groupby(
             'EPOD Name')['KM Travelled for Session'].mean().reset_index().round(1)
-        avgkm = average_kms['KM Travelled for Session'].mean().round(2)
+
+        avg_kms_per_session = average_kms['KM Travelled for Session'] / avg_sessions['Record Count']
+
         with col4:
-            st.markdown("Average Kms/EPod")
-            st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                        str(avgkm)+"</span>", unsafe_allow_html=True)
+            st.markdown("Average Kms/EPod per Session")
+            st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
+                        str(avg_kms_per_session.mean().round(2)) + "</span>", unsafe_allow_html=True)
 
         filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].replace(
             '', np.nan)
@@ -1492,13 +1590,17 @@ with tab3:
         filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].astype(
             float)
         filtered_data['KWH Pumped Per Session'] = filtered_data['KWH Pumped Per Session'].abs()
+
+        # Calculate Average kWh per EPod per Session
         average_kwh = filtered_data.groupby(
             'EPOD Name')['KWH Pumped Per Session'].mean().reset_index().round(1)
-        avgkwh = average_kwh['KWH Pumped Per Session'].mean().round(2)
+
+        avg_kwh_per_session = average_kwh['KWH Pumped Per Session'] / avg_sessions['Record Count']
+
         with col6:
-            st.markdown("Average kWh/EPod")
-            st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                        str(avgkwh)+"</span>", unsafe_allow_html=True)
+            st.markdown("Average kWh/EPod per Session")
+            st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
+                        str(avg_kwh_per_session.mean().round(2)) + "</span>", unsafe_allow_html=True)
 
         fig = go.Figure()
         for color, kpi_group in record_count_df.groupby('Color'):
@@ -1634,67 +1736,45 @@ with tab4:
         'Actual Date'].count().reset_index()
     max_sessions.columns = ['Actual OPERATOR NAME', 'Max Sessions']
 
-    unique_cities = filtered_df.groupby(['Actual OPERATOR NAME', 'Actual Date'])[
-        'Customer Location City'].nunique().reset_index()
-    unique_cities = unique_cities.groupby('Actual OPERATOR NAME')[
-        'Customer Location City'].max().reset_index()
-    unique_cities.columns = ['Actual OPERATOR NAME', 'Unique Cities']
 
-    kpi_flags = filtered_df.groupby(['Actual OPERATOR NAME', 'Actual Date'])[
-        't-15_kpi'].unique().reset_index()
-    kpi_flags['t-15_kpi'] = kpi_flags['t-15_kpi'].apply(
-        lambda x: x[0])
-    kpi_counts = kpi_flags.groupby('Actual OPERATOR NAME')[
-        't-15_kpi'].value_counts().unstack().reset_index()
-    kpi_counts = kpi_counts.fillna(0)
 
     working_days = filtered_df.groupby('Actual OPERATOR NAME')[
         'Actual Date'].nunique().reset_index()
     working_days.columns = ['Actual OPERATOR NAME', 'Working Days']
 
-    merged_df = max_sessions.merge(
-        unique_cities, on='Actual OPERATOR NAME', how='left')
-    merged_df = merged_df.merge(
-        kpi_counts, on='Actual OPERATOR NAME', how='left')
-    merged_df = merged_df.merge(
-        working_days, on='Actual OPERATOR NAME', how='left')
+    # Load the data from the CSV file
+    rank_file_path = r"June Roundtable data.xlsx - Final.csv"
+    data = pd.read_csv(rank_file_path)
 
-    weights = {
-        'Max Sessions': 1,
-        'Unique Cities': 2,
-        'Flag 1 Count': 3,
-        'Flag 2 Count': -1,
-        'Working Days': 1
-    }
+    # Clean the "Overall Score" column and convert to numeric (percentage) format
+    data["Overall Score"] = data["Overall Score"].str.replace("%", "").astype(float)
 
-    weights = {metric: weight for metric,
-               weight in weights.items() if metric in merged_df.columns}
+    # Clean leading/trailing whitespaces in the "Full name" column
+    data["Full name"] = data["Full name"].str.strip()
 
-    for metric, weight in weights.items():
-        merged_df[metric + ' Score'] = pd.to_numeric(
-            merged_df[metric], errors='coerce') * weight
+    # Drop rows with missing values in the "Overall Score" column
+    data.dropna(subset=["Overall Score"], inplace=True)
 
-    merged_df['Total Score'] = merged_df[[
-        metric + ' Score' for metric in weights]].sum(axis=1)
+    # Find the operator with the maximum Overall Score
+    max_score_row = data.loc[data['Overall Score'].idxmax()]
+    max_score_operator = max_score_row['Full name']
+    max_score_value = max_score_row['Overall Score']
 
-    merged_df = merged_df.sort_values(
-        'Total Score', ascending=False).reset_index(drop=True)
-    merged_df['Rank'] = merged_df.index + 1
+    # Find the operator with the minimum Overall Score
+    min_score_row = data.loc[data['Overall Score'].idxmin()]
+    min_score_operator = min_score_row['Full name']
+    min_score_value = min_score_row['Overall Score']
 
-    lowest_rank_operator = merged_df.loc[merged_df['Rank'].idxmin(
-    ), 'Actual OPERATOR NAME']
-
-    highest_rank_operator = merged_df.loc[merged_df['Rank'].idxmax(
-    ), 'Actual OPERATOR NAME']
-
-    with col5:
+    with col7:
+        # Display the lowest and highest scoring operators along with their scores
         st.markdown("Lowest Scoring:")
-        st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                    highest_rank_operator+"</span>", unsafe_allow_html=True)
-    with col6:
+        st.markdown("<span style='font-size: 25px; line-height: 0.8;'>{}</span>".format(min_score_operator),
+                    unsafe_allow_html=True)
+
+    with col8:
         st.markdown("Highest Scoring:")
-        st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                    lowest_rank_operator+"</span>", unsafe_allow_html=True)
+        st.markdown("<span style='font-size: 25px; line-height: 0.8;'>{}</span>".format(max_score_operator),
+                    unsafe_allow_html=True)
 
     grouped_df = filtered_df.groupby(
         ['Actual OPERATOR NAME', 'Customer Location City']).size().reset_index()
@@ -1805,18 +1885,6 @@ with tab4:
         selected_working_days = working_days[working_days['Operator'].isin(
             city_df['Operator'])]
 
-    with col7:
-        st.markdown(f"Most Active Operator in {selected_city}")
-        most_operator = city_df.loc[city_df['Count'].idxmax(), 'Operator']
-        st.markdown("<span style = 'font-size:25px;line-height: 0.8;'>" +
-                    most_operator+"</span>", unsafe_allow_html=True)
-
-    with col8:
-        st.markdown(f"Least Active Operator in {selected_city}")
-        least_operator = city_df.loc[city_df['Count'].idxmin(), 'Operator']
-        st.markdown(
-            "<span style = 'font-size:25px;line-height: 0.8;'>"+least_operator+"</span>",
-            unsafe_allow_html=True)
     fig_working_days = go.Figure(data=go.Bar(
         x=selected_working_days['Operator'],
         y=selected_working_days['Working Days'],
@@ -1835,144 +1903,272 @@ with tab4:
         st.plotly_chart(fig_working_days)
 
 with tab5:
-    df['type'] = df['type'].str.replace('-', '')
-    min_date = df['Actual Date'].min().date()
-    max_date = df['Actual Date'].max().date()
-    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
-    with col1:
-        start_date = st.date_input(
-            'Start Date', min_value=min_date, max_value=max_date, value=min_date, key="sub_start_date")
-    with col1:
-        end_date = st.date_input(
-            'End Date', min_value=min_date, max_value=max_date, value=max_date, key="sub_end_date")
-
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
-
-    filtered_df = df[(df['Actual Date'] >= start_date)
-                     & (df['Actual Date'] <= end_date)]
-    filtered_data_vehicle = vehicle_df[(vehicle_df['Actual Date'] >= start_date)
-                                       & (vehicle_df['Actual Date'] <= end_date)]
-
+    # Helper function to generate bar graph
     def generate_bar_graph(filtered_df):
-
         type_counts = filtered_df['type'].value_counts().reset_index()
         type_counts.columns = ['Type', 'Count']
         total_sessions = type_counts['Count'].sum()
-        type_counts['Percentage'] = (
-            type_counts['Count'] / total_sessions) * 100
+        type_counts['Percentage'] = (type_counts['Count'] / total_sessions) * 100
         type_counts['Percentage'] = type_counts['Percentage'].round(2)
         fig = px.bar(type_counts, x='Type', y='Percentage', text='Percentage',
                      labels={'Type': 'Subscription', 'Percentage': 'Percentage'}, width=525, height=525,
                      title='Total Sessions by Subscription Type')
         fig.update_layout(xaxis=dict(tickangle=-45))
         fig.update_traces(textposition='outside')
-
         return fig
-    bar_graph = generate_bar_graph(filtered_df)
+
+
+    # Data preprocessing
+    df['type'] = df['type'].str.replace('-', '')
+    min_date = df['Actual Date'].min().date()
+    max_date = df['Actual Date'].max().date()
+
+    # Streamlit UI
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.subheader("Overall")
     with col2:
+        start_date = st.date_input(
+            'Start Date', min_value=min_date, max_value=max_date, value=min_date, key="sub_start_date")
+    with col3:
+        end_date = st.date_input(
+            'End Date', min_value=min_date, max_value=max_date, value=max_date, key="sub_end_date")
+
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
+    filtered_df = df[(df['Actual Date'] >= start_date) & (df['Actual Date'] <= end_date)]
+
+    # Generate and display the bar graph
+    bar_graph = generate_bar_graph(filtered_df)
+    bar_graph.update_layout(width=400, height=490)
+    col1, col2, col3 = st.columns(3)
+    with col1:
         st.plotly_chart(bar_graph)
         st.write("\n")
-    filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].replace(
-        '', np.nan)
 
+    # Data cleaning and analysis for KWH Pumped Per Session
+    filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].replace('', np.nan)
     filtered_df = filtered_df[filtered_df['KWH Pumped Per Session'] != '#VALUE!']
-
-    filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].astype(
-        float)
+    filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].astype(float)
     filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].abs()
-    average_kwh = filtered_df.groupby(
-        'type')['KWH Pumped Per Session'].mean().reset_index().round(1)
+    average_kwh = filtered_df.groupby('type')['KWH Pumped Per Session'].mean().reset_index().round(1)
 
+    # Generate and display the bar graph for Average kWh Pumped Per Session
     fig = go.Figure(
-        data=[go.Bar(x=average_kwh['type'], y=average_kwh['KWH Pumped Per Session'], text=average_kwh['KWH Pumped Per Session'], textposition='outside')])
+        data=[go.Bar(x=average_kwh['type'], y=average_kwh['KWH Pumped Per Session'],
+                     text=average_kwh['KWH Pumped Per Session'], textposition='outside')])
     fig.update_layout(xaxis_title='Subscription', yaxis_title='Average kWh Pumped',
-                      title='Average kWh Pumped Per Session by Subscription Type', width=525, height=525, xaxis=dict(tickangle=-45))
-
-    with col6:
+                      title='Average kWh Pumped Per Session by Subscription Type', width=400, height=490,
+                      xaxis=dict(tickangle=-45))
+    with col2:
         st.plotly_chart(fig)
         st.write("\n")
 
-    # filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].replace(
-    #     '', np.nan)
-    # filtered_data_vehicle['KM Travelled for Session'] = filtered_data_vehicle['KM Travelled for Session'].astype(
-    #     float)
-    # average_kms = filtered_data_vehicle.groupby(
-    #     'type')['KM Travelled for Session'].mean().reset_index().round(1)
+    # Data cleaning and analysis for Average Duration Per Session
+    average_duration = filtered_df.groupby('type')['Duration'].mean().reset_index().round(1)
 
-    # fig = go.Figure(
-    #     data=[go.Bar(x=average_kms['type'], y=average_kms['KM Travelled for Session'], text=average_kms['KM Travelled for Session'], textposition='outside')])
-    # fig.update_layout(xaxis_title='Subscription', yaxis_title='Avg KMs Travelled per Session',
-    #                   title='Average KMs Travelled Per Session by Subscription Type', width=525, height=525, xaxis=dict(tickangle=-45))
-
-    # with col2:
-
-    #     st.plotly_chart(fig)
-    #     st.write("\n")
-    average_duration = filtered_df.groupby(
-        'type')['Duration'].mean().reset_index().round(1)
+    # Generate and display the bar graph for Average Duration Per Session
     fig = go.Figure(
-        data=[go.Bar(x=average_duration['type'], y=average_duration['Duration'], text=average_duration['Duration'], textposition='outside')])
+        data=[go.Bar(x=average_duration['type'], y=average_duration['Duration'], text=average_duration['Duration'],
+                     textposition='outside')])
     fig.update_layout(xaxis_title='Subscription', yaxis_title='Avg Duration per Session',
-                      title='Average Duration Per Session by Subscription Type', width=525, height=525, xaxis=dict(tickangle=-45))
-    with col6:
+                      title='Average Duration Per Session by Subscription Type', width=400, height=490,
+                      xaxis=dict(tickangle=-45))
+    with col3:
         st.plotly_chart(fig)
         st.write("\n")
+
+
 
     for city in filtered_df['Customer Location City'].dropna().unique():
-
+        col1, col2, col3 = st.columns(3)
         with col1:
-            for i in range(1, 57):
+            for i in range(1, 4):
                 st.write("\n")
+        col1, col2, col3 = st.columns(3)
+        with col1:
             st.subheader(city)
+        with col2:
             start_date = st.date_input(
                 'Start Date', min_value=min_date, max_value=max_date, value=min_date, key=f"{city}sub_start_date")
-        with col1:
-
+        with col3:
             end_date = st.date_input(
                 'End Date', min_value=min_date, max_value=max_date, value=max_date, key=f"{city}sub_end_date")
+
+
 
         start_date = pd.to_datetime(start_date)
         end_date = pd.to_datetime(end_date)
 
-        filtered_df = df[(df['Actual Date'] >= start_date)
-                         & (df['Actual Date'] <= end_date)]
+        filtered_df = df[(df['Actual Date'] >= start_date) & (df['Actual Date'] <= end_date)]
+        filtered_df = filtered_df[filtered_df['Customer Location City'] == city]
 
-        filtered_df = filtered_df[
-            (filtered_df['Customer Location City'] == city)]
+        # Generate and display the bar graph for each city
         bar_graph = generate_bar_graph(filtered_df)
-
-        with col2:
-
+        bar_graph.update_layout(width=400, height=490)
+        col1, col2, col3 = st.columns(3)
+        with col1:
             st.plotly_chart(bar_graph)
             st.write("\n")
-        filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].replace(
-            '', np.nan)
 
+        # Data cleaning and analysis for KWH Pumped Per Session for each city
+        filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].replace('', np.nan)
         filtered_df = filtered_df[filtered_df['KWH Pumped Per Session'] != '#VALUE!']
-
-        filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].astype(
-            float)
+        filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].astype(float)
         filtered_df['KWH Pumped Per Session'] = filtered_df['KWH Pumped Per Session'].abs()
-        average_kwh = filtered_df.groupby(
-            'type')['KWH Pumped Per Session'].mean().reset_index().round(1)
+        average_kwh = filtered_df.groupby('type')['KWH Pumped Per Session'].mean().reset_index().round(1)
 
+        # Generate and display the bar graph for Average kWh Pumped Per Session for each city
         fig = go.Figure(
-            data=[go.Bar(x=average_kwh['type'], y=average_kwh['KWH Pumped Per Session'], text=average_kwh['KWH Pumped Per Session'], textposition='outside')])
+            data=[go.Bar(x=average_kwh['type'], y=average_kwh['KWH Pumped Per Session'],
+                         text=average_kwh['KWH Pumped Per Session'], textposition='outside')])
         fig.update_layout(xaxis_title='Subscription', yaxis_title='Average kWh Pumped',
-                          title='Average kWh Pumped Per Session by Subscription Type', width=525, height=525, xaxis=dict(tickangle=-45))
-
-        with col6:
-
+                          title='Average kWh Pumped Per Session by Subscription Type', width=400, height=490,
+                          xaxis=dict(tickangle=-45))
+        with col2:
             st.plotly_chart(fig)
             st.write("\n")
 
-        average_duration = filtered_df.groupby(
-            'type')['Duration'].mean().reset_index().round(1)
+        # Data cleaning and analysis for Average Duration Per Session for each city
+        average_duration = filtered_df.groupby('type')['Duration'].mean().reset_index().round(1)
+
+        # Generate and display the bar graph for Average Duration Per Session for each city
         fig = go.Figure(
-            data=[go.Bar(x=average_duration['type'], y=average_duration['Duration'], text=average_duration['Duration'], textposition='outside')])
+            data=[go.Bar(x=average_duration['type'], y=average_duration['Duration'], text=average_duration['Duration'],
+                         textposition='outside')])
         fig.update_layout(xaxis_title='Subscription', yaxis_title='Avg Duration per Session',
-                          title='Average Duration Per Session by Subscription Type', width=525, height=525, xaxis=dict(tickangle=-45))
-        with col6:
+                          title='Average Duration Per Session by Subscription Type', width=400, height=490,
+                          xaxis=dict(tickangle=-45))
+        with col3:
             st.plotly_chart(fig)
             st.write("\n")
+
+
+
+with tab6:
+    min_date = df['Actual Date'].min().date()
+    max_date = df['Actual Date'].max().date()
+    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
+    with col1:
+        start_date = st.date_input(
+            'Start Date', min_value=min_date, max_value=max_date, value=min_date, key="ops_start_date_input")
+    with col2:
+        end_date = st.date_input(
+            'End Date', min_value=min_date, max_value=max_date, value=max_date, key="ops_end_date_input")
+
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
+    filtered_df = df[(df['Actual Date'] >= start_date)
+                     & (df['Actual Date'] <= end_date)]
+
+
+    unique_types = filtered_df["type"].unique()
+    type_colors = {type_: f"#{hash(type_) % 16777215:06x}" for type_ in unique_types}
+
+    # Create a Streamlit map using folium
+    st.write("### Subscription Wise Geographical Insights")
+    m = folium.Map(location=[filtered_df['location.lat'].mean(), filtered_df['location.long'].mean()], zoom_start=10)
+
+
+    # Define a function to generate the HTML table for the popup
+    def generate_popup_table(row):
+        columns_to_show = [
+            "Actual Date", "Customer Name", "EPOD Name", "Actual OPERATOR NAME", "Duration",
+            "Day", "E-pod Arrival Time @ Session location", "Actual SoC_Start", "Actual Soc_End",
+            "Booking Session time", "Customer Location City", "canceled", "cancelledPenalty",
+            "t-15_kpi", "KWH Pumped Per Session"
+        ]
+        table_html = "<table style='border-collapse: collapse;'>"
+        for col in columns_to_show:
+            table_html += f"<tr><td style='border: 1px solid black; padding: 5px;'><strong>{col}</strong></td><td style='border: 1px solid black; padding: 5px;'>{row[col]}</td></tr>"
+        table_html += "</table>"
+        return table_html
+
+
+    # Add circle markers for each location with different colors based on the type
+    for index, row in filtered_df.iterrows():
+        location_name = row["type"]
+        longitude = row["location.long"]
+        latitude = row["location.lat"]
+        color = type_colors[location_name]
+
+        # Creating the popup content with a table
+        popup_html = f"""
+            <strong>{location_name}</strong><br>
+            Latitude: {latitude}<br>
+            Longitude: {longitude}<br>
+            {generate_popup_table(row)}
+            """
+
+        folium.CircleMarker(
+            location=[latitude, longitude],
+            radius=5,
+            popup=folium.Popup(popup_html, max_width=400),  # Use the created popup content
+            color=color,
+            fill=True,
+            fill_color=color,
+        ).add_to(m)
+
+    # Create a custom legend using folium.plugins
+    legend_html = f"""
+         <div style="position: fixed; 
+                     bottom: 50px; left: 50px; width: 120px; height: 90px; 
+                     border:2px solid grey; z-index:9999; font-size:14px;
+                     background-color:white;
+                     ">&nbsp;<strong>Legend</strong><br>
+                      {"".join(f'<i style="background:{type_colors[type_]}; width: 15px; height: 15px; display:inline-block; margin-right: 5px;"></i> {type_}<br>'
+                               for type_ in unique_types)}
+         </div>
+         """
+
+    # Add the legend to the map using folium.plugins
+    legend = folium.plugins.FloatImage(legend_html, bottom=50, left=50)
+    m.get_root().add_child(legend)
+
+    # Calculate and display the most and least subscription types ("type") in columns
+    with col7:
+        most_subscribed_type = filtered_df['type'].value_counts().idxmax()
+        st.markdown("Most Subscribed Type")
+        st.markdown("<span style='font-size: 25px; line-height: 0.7;'>{}</span>".format(most_subscribed_type),
+                    unsafe_allow_html=True)
+
+    with col8:
+        least_subscribed_type = filtered_df['type'].value_counts().idxmin()
+        st.markdown("Least Subscribed Type")
+        st.markdown("<span style='font-size: 25px; line-height: 0.7;'>{}</span>".format(least_subscribed_type),
+                    unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        # Display the map using folium_static
+        folium_static(m)
+
+    with col3:
+        # Display the custom legend with the color scale
+        legend_items = [(type_, color) for type_, color in type_colors.items()]
+
+        # Calculate the split point for two columns
+        split_point = len(legend_items) // 2
+
+        # Split the legend items into two lists for two columns
+        column1 = legend_items[:split_point]
+        column2 = legend_items[split_point:]
+
+        # Display the legend items in two columns
+        col1, col2 = st.columns(2)
+
+        with col1:
+            for type_, color in column1:
+                st.markdown(
+                    f'<i style="background:{color}; width: 8px; height: 8px; display:inline-block;"></i> {type_}',
+                    unsafe_allow_html=True)
+
+        with col2:
+            for type_, color in column2:
+                st.markdown(
+                    f'<i style="background:{color}; width: 8px; height: 8px; display:inline-block;"></i> {type_}',
+                    unsafe_allow_html=True)
