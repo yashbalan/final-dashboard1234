@@ -1748,8 +1748,7 @@ with tab4:
     working_days.columns = ['Actual OPERATOR NAME', 'Working Days']
 
     # Load the data from the CSV file
-    rank_file_path = "June Roundtable data.xlsx - Final.csv"
-    data = pd.read_csv(rank_file_path)
+    data = pd.read_csv('data/June Roundtable data.xlsx - Final.csv', encoding='latin1')
 
     # Clean the "Overall Score" column and convert to numeric (percentage) format
     data["Overall Score"] = data["Overall Score"].str.replace("%", "").astype(float)
