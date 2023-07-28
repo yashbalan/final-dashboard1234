@@ -1380,7 +1380,7 @@ with tab3:
 
     # Display Average Duration/Session
     with col5:
-        st.markdown("Average Duration/Session")
+        st.markdown("Average Duration/EPod")
         st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
                     str(avgdur) + "</span>", unsafe_allow_html=True)
 
@@ -1654,7 +1654,7 @@ with tab3:
 
 
         with col5:
-            st.markdown("Average Duration/EPod per Session")
+            st.markdown("Average Duration/EPod")
             st.markdown("<span style='font-size: 25px;line-height: 0.8;'>" +
                         str(average_duration['Duration'].mean().round(2)) + "</span>", unsafe_allow_html=True)
 
