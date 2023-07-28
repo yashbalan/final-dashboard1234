@@ -27,7 +27,7 @@ df_june = pd.DataFrame(pd.read_csv(
 df_vehicles_june = pd.DataFrame(pd.read_csv(
     'data/Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv', encoding='latin1'))
 
-rank_file_path = r"June Roundtable data.xlsx - Final.csv"
+rank_file_path = 'data/June Roundtable data.xlsx - Final.csv'
 
 df_june.rename(
     columns={'Reach date ': 'Reach date'}, inplace=True)
