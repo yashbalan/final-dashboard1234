@@ -321,12 +321,13 @@ cities = ["Gurugram", "Delhi", "Noida"]
 merged_df["Actual SoC_Start"] = merged_df["Actual SoC_Start"].str.rstrip("%")
 merged_df["Actual Soc_End"] = merged_df["Actual Soc_End"].str.rstrip("%")
 
+# Concatenate June and July data for df_month
+df_month = pd.concat([df_june], ignore_index=True)
+
 
 requiredColumns = ['uid', 'Actual Date', 'Customer Name', 'EPOD Name', 'Actual OPERATOR NAME', 'Duration', 'optChargeStartTime', 'optChargeEndTime', 'Day',
                    'E-pod Arrival Time @ Session location', 'Actual SoC_Start', 'Actual Soc_End', 'Booking Session time', 'Customer Location City', 'canceled', 'cancelledPenalty', 't-15_kpi', 'type', 'KWH Pumped Per Session', 'location.lat', 'location.long']
 
-# Concatenate June and July data for df_month
-df_month = pd.concat([df_june], ignore_index=True)
 df_month = df_month[requiredColumns]
 merged_df = merged_df[requiredColumns]
 
