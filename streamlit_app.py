@@ -21,13 +21,47 @@ df2 = pd.DataFrame(pd.read_csv(
 
 df3 = pd.DataFrame(pd.read_csv(
     'May Data/possible_subscribers_May23.csv', encoding='latin1'))
-df_june = pd.DataFrame(pd.read_csv(
-    'Roundtable Data/June Roundtable data.xlsx - Round table.csv', encoding='latin1'))
 
-df_vehicles_june = pd.DataFrame(pd.read_csv(
-    'KM Data/Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv', encoding='latin1'))
+def load_monthly_data(file_path):
+    return pd.read_csv(file_path, encoding='latin1')
 
-rank_file_path = 'Rank Data/June Roundtable data.xlsx - Final.csv'
+# Load June data
+june_file_path = 'Roundtable Data/June Roundtable data.xlsx - Round table.csv'
+df_june = pd.DataFrame(load_monthly_data(june_file_path))
+
+# Load July data
+#july_file_path = 'Roundtable Data/July Roundtable data.xlsx - Round table.csv'
+#df_july = pd.DataFrame(load_monthly_data(july_file_path))
+
+# Concatenate June and July data for df_month
+df_month = pd.concat([df_june], ignore_index=True)
+
+# Load June vehicles data
+june_vehicles_file_path = 'KM Data/Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv'
+df_vehicles_june = pd.DataFrame(load_monthly_data(june_vehicles_file_path))
+
+# Load July vehicles data
+#july_vehicles_file_path = 'KM Data/Vehicles-Daily-Report-01-Jul-2023-12-00-AM-to-31-Jul-2023-11-59-PM.xlsx - Vehicle Daily Report.csv'
+#df_vehicles_july = pd.DataFrame(load_monthly_data(july_vehicles_file_path))
+
+# Concatenate June and July data for df_vehicles_month
+df_vehicles_month = pd.concat([df_vehicles_june], ignore_index=True)
+
+def load_monthly_data(file_path):
+    return pd.read_csv(file_path, encoding='latin1')
+
+# Load June data
+june_rank_file_path = 'Rank Data/June Roundtable data.xlsx - Final.csv'
+df_rank_june = pd.DataFrame(load_monthly_data(june_rank_file_path))
+
+# Load July data
+#july_rank_file_path = 'Rank Data/July Roundtable data.xlsx - Final.csv'
+#df_rank_july = pd.DataFrame(load_monthly_data(july_rank_file_path))
+
+# Concatenate June and July data for the rank DataFrame
+df_rank = pd.concat([df_rank_june], ignore_index=True)
+
+'
 
 df_june.rename(
     columns={'Reach date ': 'Reach date'}, inplace=True)
@@ -1892,25 +1926,23 @@ with tab4:
         'Actual Date'].nunique().reset_index()
     working_days.columns = ['Actual OPERATOR NAME', 'Working Days']
 
-    # Load the rank data from the CSV file
-    data = pd.read_csv(rank_file_path)
-
+    ##########Rank Data##########
     # Clean the "Overall Score" column and convert to numeric (percentage) format
-    data["Overall Score"] = data["Overall Score"].str.replace("%", "").astype(float)
+    df_rank["Overall Score"] = df_rank["Overall Score"].str.replace("%", "").astype(float)
 
     # Clean leading/trailing whitespaces in the "Full name" column
-    data["Full name"] = data["Full name"].str.strip()
+    df_rank["Full name"] = df_rank["Full name"].str.strip()
 
     # Drop rows with missing values in the "Overall Score" column
-    data.dropna(subset=["Overall Score"], inplace=True)
+    df_rank.dropna(subset=["Overall Score"], inplace=True)
 
     # Find the operator with the maximum Overall Score
-    max_score_row = data.loc[data['Overall Score'].idxmax()]
+    max_score_row = df_rank.loc[df_rank['Overall Score'].idxmax()]
     max_score_operator = max_score_row['Full name']
     max_score_value = max_score_row['Overall Score']
 
     # Find the operator with the minimum Overall Score
-    min_score_row = data.loc[data['Overall Score'].idxmin()]
+    min_score_row = df_rank.loc[df_rank['Overall Score'].idxmin()]
     min_score_operator = min_score_row['Full name']
     min_score_value = min_score_row['Overall Score']
 
