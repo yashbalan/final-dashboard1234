@@ -368,7 +368,6 @@ st.markdown(
 )
 
 
-df_vehicles_month = pd.concat([df_vehicles_june], ignore_index=True)
 df_vehicles_month = df_vehicles_month.drop(columns=["Number", "Year", "Make", "Model",
                                                   "Fuel Type", "Driver Name", "Driver Number", "Total"], axis=1)
 
