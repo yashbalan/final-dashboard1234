@@ -325,6 +325,8 @@ merged_df["Actual Soc_End"] = merged_df["Actual Soc_End"].str.rstrip("%")
 requiredColumns = ['uid', 'Actual Date', 'Customer Name', 'EPOD Name', 'Actual OPERATOR NAME', 'Duration', 'optChargeStartTime', 'optChargeEndTime', 'Day',
                    'E-pod Arrival Time @ Session location', 'Actual SoC_Start', 'Actual Soc_End', 'Booking Session time', 'Customer Location City', 'canceled', 'cancelledPenalty', 't-15_kpi', 'type', 'KWH Pumped Per Session', 'location.lat', 'location.long']
 
+# Concatenate June and July data for df_month
+df_month = pd.concat([df_june], ignore_index=True)
 df_month = df_month[requiredColumns]
 merged_df = merged_df[requiredColumns]
 
@@ -396,7 +398,8 @@ def convert_vehicle_data(df):
     #     melted_df['Actual Date'], format='%d/%m/%Y %H:%M', errors='coerce')
     return melted_df
 
-
+# Concatenate June and July data for df_vehicles_month
+df_vehicles_month = pd.concat([df_vehicles_june], ignore_index=True)
 vehicle_data_list = [pivot_df, df_vehicles_month]
 melted_dfs = [convert_vehicle_data(df) for df in vehicle_data_list]
 vehicle_df = pd.concat(melted_dfs, ignore_index=True)
