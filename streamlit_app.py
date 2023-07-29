@@ -15,19 +15,19 @@ from folium import plugins
 
 
 df1 = pd.DataFrame(pd.read_csv(
-    'data/Ops_Session_Data.csv', encoding='latin1'))
+    'May Data/Ops_Session_Data.csv', encoding='latin1'))
 df2 = pd.DataFrame(pd.read_csv(
-    'data/past_bookings_May23.csv', encoding='latin1'))
+    'May Data/past_bookings_May23.csv', encoding='latin1'))
 
 df3 = pd.DataFrame(pd.read_csv(
-    'data/possible_subscribers_May23.csv', encoding='latin1'))
+    'May Data/possible_subscribers_May23.csv', encoding='latin1'))
 df_june = pd.DataFrame(pd.read_csv(
-    'data/June Roundtable data.xlsx - Round table.csv', encoding='latin1'))
+    'Roundtable Data/June Roundtable data.xlsx - Round table.csv', encoding='latin1'))
 
 df_vehicles_june = pd.DataFrame(pd.read_csv(
-    'data/Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv', encoding='latin1'))
+    'KM Data/Vehicles-Daily-Report-01-Jun-2023-12-00-AM-to-30-Jun-2023-11-59-PM.xlsx - Vehicle Daily Report.csv', encoding='latin1'))
 
-rank_file_path = 'data/June Roundtable data.xlsx - Final.csv'
+rank_file_path = 'Rank Data/June Roundtable data.xlsx - Final.csv'
 
 df_june.rename(
     columns={'Reach date ': 'Reach date'}, inplace=True)
