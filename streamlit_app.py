@@ -51,7 +51,7 @@ def load_monthly_data(file_path):
     return pd.read_csv(file_path, encoding='latin1')
 
 # Load June data
-june_rank_file_path = 'Rank Data/June Roundtable data.xlsx - Final.csv'
+june_rank_file_path = 'Rank Data/June Rank Data.csv'
 df_rank_june = pd.DataFrame(load_monthly_data(june_rank_file_path))
 
 # Load July data
