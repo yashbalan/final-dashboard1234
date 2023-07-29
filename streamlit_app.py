@@ -61,12 +61,12 @@ df_rank_june = pd.DataFrame(load_rank_data(june_rank_file_path))
 # Concatenate June and July data for the rank DataFrame
 df_rank = pd.concat([df_rank_june], ignore_index=True)
 
-df_june.rename(
+df_month.rename(
     columns={'Reach date ': 'Reach date'}, inplace=True)
 df2["Customer Name"] = df2["firstName"].str.cat(df2["lastName"], sep=" ")
-df_june["Customer Name"] = df_june["firstName"].str.cat(
-    df_june["lastName"], sep=" ")
-df_june['E-pod No.'] = df_june['E-pod No.'].str.upper()
+df_month["Customer Name"] = df_month["firstName"].str.cat(
+    df_month["lastName"], sep=" ")
+df_month['E-pod No.'] = df_month['E-pod No.'].str.upper()
 
 df1 = df1.dropna(subset=["uid"])
 
@@ -88,23 +88,23 @@ def subtract_12_from_pm_time(time_str):
     return time_str
 
 
-df_june = df_june[pd.notna(df_june['fromTime'])]
-df_june = df_june[df_june['Reach Time'] != 'Cancel']
-df_june = df_june[df_june['Reach Time'] != 'CANCEL']
+df_month = df_month[pd.notna(df_month['fromTime'])]
+df_month = df_month[df_month['Reach Time'] != 'Cancel']
+df_month = df_month[df_month['Reach Time'] != 'CANCEL']
 
 df1['Booking Session time'] = df1['Booking Session time'].apply(
     subtract_12_from_pm_time)
-# df_june['Booked time'] = df_june['Booked time'].apply(
+# df_month['Booked time'] = df_month['Booked time'].apply(
 #     subtract_12_from_pm_time)
 df2['updated'] = pd.to_datetime(df2['updated'], format='%d/%m/%Y, %H:%M:%S')
 df2['fromTime'] = pd.to_datetime(df2['fromTime'], format='%Y-%m-%dT%H:%M')
 
-df_june['updated'] = pd.to_datetime(
-    df_june['updated'])
-df_june['fromTime'] = pd.to_datetime(
-    df_june['fromTime'])
-df_june['Reach Time'] = pd.to_datetime(
-    df_june['Reach Time'], format='mixed')
+df_month['updated'] = pd.to_datetime(
+    df_month['updated'])
+df_month['fromTime'] = pd.to_datetime(
+    df_month['fromTime'])
+df_month['Reach Time'] = pd.to_datetime(
+    df_month['Reach Time'], format='mixed')
 
 
 df1["KM Travelled for Session"] = df1["KM Travelled for Session"].str.replace(
@@ -125,25 +125,25 @@ df2.loc[(df2['canceled'] == True) & (df2['time_diff_hours'] < 2), 'cancelledPena
 # Optionally, you can drop the 'time_diff' column if you don't need it anymore
 df2.drop(columns=['time_diff'], inplace=True)
 
-df_june['time_diff'] = df_june['fromTime'] - df_june['updated']
-df_june['time_diff_hours'] = df_june['time_diff'] / timedelta(hours=1)
+df_month['time_diff'] = df_month['fromTime'] - df_month['updated']
+df_month['time_diff_hours'] = df_month['time_diff'] / timedelta(hours=1)
 
 # Initialize the 'cancelledPenalty' column with zeros
-df_june['cancelledPenalty'] = 0
+df_month['cancelledPenalty'] = 0
 
 # Set 'cancelledPenalty' to 1 for rows where 'canceled' is True and 'time_diff_hours' is less than 2
-df_june.loc[(df_june['canceled'] == True) & (df_june['time_diff_hours'] < 2), 'cancelledPenalty'] = 1
+df_month.loc[(df_month['canceled'] == True) & (df_month['time_diff_hours'] < 2), 'cancelledPenalty'] = 1
 
 # Optionally, you can drop the 'time_diff' column if you don't need it anymore
-df_june.drop(columns=['time_diff'], inplace=True)
+df_month.drop(columns=['time_diff'], inplace=True)
 
 df1.drop(columns=['Customer Location City'], inplace=True)
 df2.rename(columns={'location.state': 'Customer Location City'}, inplace=True)
 df2['Customer Location City'].replace(
     {'Haryana': 'Gurugram', 'Uttar Pradesh': 'Noida'}, inplace=True)
-df_june.rename(
+df_month.rename(
     columns={'location.state': 'Customer Location City'}, inplace=True)
-df_june['Customer Location City'].replace(
+df_month['Customer Location City'].replace(
     {'Haryana': 'Gurugram', 'Uttar Pradesh': 'Noida'}, inplace=True)
 df1['Actual Date'] = pd.to_datetime(df1['Actual Date'])
 
@@ -168,7 +168,7 @@ pivot_df.columns = [col.strftime('%d/%m') if isinstance(
 pivot_df = pivot_df.rename(columns={'EPOD_Name': 'Name'})
 pivot_df['Name'] = pivot_df['Name'].str.replace('-', '').str.replace(' ', '')
 
-df_vehicles_june['Name'] = df_vehicles_june['Name'].str.replace(
+df_vehicles_month['Name'] = df_vehicles_month['Name'].str.replace(
     '-', '').str.replace(' ', '')
 
 
@@ -184,7 +184,7 @@ def assign_city(row):
 
 
 pivot_df['Customer Location City'] = pivot_df.apply(assign_city, axis=1)
-df_vehicles_june['Customer Location City'] = df_vehicles_june.apply(
+df_vehicles_month['Customer Location City'] = df_vehicles_month.apply(
     assign_city, axis=1)
 
 
@@ -209,7 +209,7 @@ def calculate_t_minus_15(row):
         return 0
 
 
-df_june['t-15_kpi'] = np.nan
+df_month['t-15_kpi'] = np.nan
 
 
 def check_booking_time(df):
@@ -251,8 +251,8 @@ df2['Duration'] = df2.apply(calculate_duration_df2, axis=1)
 # Merge df2 and df1 based on 'uid'
 merged_df = pd.merge(df2, df1, on="uid", how="left")
 
-# Calculate Duration in df_june after merging
-def calculate_duration_df_june(row):
+# Calculate Duration in df_month after merging
+def calculate_duration_df_month(row):
     start_time = pd.to_datetime(row['optChargeStartTime'], dayfirst=False, errors='coerce')
     end_time = pd.to_datetime(row['optChargeEndTime'], dayfirst=False, errors='coerce')
 
@@ -262,27 +262,27 @@ def calculate_duration_df_june(row):
 
     return abs((end_time - start_time).total_seconds() / 60)
 
-# Add 'Duration' column to df_june after merging
-df_june['Duration'] = df_june.apply(calculate_duration_df_june, axis=1)
+# Add 'Duration' column to df_month after merging
+df_month['Duration'] = df_month.apply(calculate_duration_df_month, axis=1)
 
 
-df_june = check_booking_time(df_june)
+df_month = check_booking_time(df_month)
 
 
 df3.set_index('uid', inplace=True)
 
 
 merged_df = merged_df.join(df3['type'], on='location.user_id_x')
-df_june = df_june.join(df3['type'], on='location.user_id')
-df_june = df_june.rename(columns={'E-pod No.': 'Number'})
-df_june['Number'] = df_june['Number'].astype(str)
-df_june = df_june.merge(
-    df_vehicles_june[['Number', 'Name']], on='Number', how='left')
+df_month = df_month.join(df3['type'], on='location.user_id')
+df_month = df_month.rename(columns={'E-pod No.': 'Number'})
+df_month['Number'] = df_month['Number'].astype(str)
+df_month = df_month.merge(
+    df_vehicles_month[['Number', 'Name']], on='Number', how='left')
 
 
-df_june = df_june.rename(
+df_month = df_month.rename(
     columns={"Name": "EPOD Name", "Reach date": "Actual Date", "Full name": "Actual OPERATOR NAME", "Reach time": "E-pod Arrival Time @ Session location", "optBatteryBeforeChrg": "Actual SoC_Start", "optBatteryAfterChrg": "Actual Soc_End", "KWH Charged": "KWH Pumped Per Session", "Booked time": "Booking Session time"})
-df_june['EPOD Name'] = df_june['EPOD Name'].fillna('EPOD012')
+df_month['EPOD Name'] = df_month['EPOD Name'].fillna('EPOD012')
 
 grouped_df = merged_df.groupby("uid").agg(
     {"Actual SoC_Start": "min", "Actual Soc_End": "max"}).reset_index()
@@ -310,7 +310,7 @@ merged_df['Duration'] = (pd.to_datetime(merged_df['optChargeEndTime'], dayfirst=
 #merged_df = merged_df[(merged_df['Duration'] >= 0) & (merged_df['Duration'] <= 300)]
 
 
-df_june['Day'] = pd.to_datetime(df_june['Booked date']).dt.day_name()
+df_month['Day'] = pd.to_datetime(df_month['Booked date']).dt.day_name()
 
 merged_df['Day'] = pd.to_datetime(merged_df['Actual Date']).dt.day_name()
 
@@ -325,11 +325,11 @@ merged_df["Actual Soc_End"] = merged_df["Actual Soc_End"].str.rstrip("%")
 requiredColumns = ['uid', 'Actual Date', 'Customer Name', 'EPOD Name', 'Actual OPERATOR NAME', 'Duration', 'optChargeStartTime', 'optChargeEndTime', 'Day',
                    'E-pod Arrival Time @ Session location', 'Actual SoC_Start', 'Actual Soc_End', 'Booking Session time', 'Customer Location City', 'canceled', 'cancelledPenalty', 't-15_kpi', 'type', 'KWH Pumped Per Session', 'location.lat', 'location.long']
 
-df_june = df_june[requiredColumns]
+df_month = df_month[requiredColumns]
 merged_df = merged_df[requiredColumns]
 
 merged_df.to_csv('merged.csv')
-dfs = [merged_df, df_june]
+dfs = [merged_df, df_month]
 merged_df = pd.concat(dfs, ignore_index=True)
 
 merged_df = merged_df[merged_df['Customer Location City'].isin(cities)]
@@ -368,7 +368,7 @@ st.markdown(
 )
 
 
-df_vehicles_june = df_vehicles_june.drop(columns=["Number", "Year", "Make", "Model",
+df_vehicles_month = df_vehicles_month.drop(columns=["Number", "Year", "Make", "Model",
                                                   "Fuel Type", "Driver Name", "Driver Number", "Total"], axis=1)
 
 
@@ -397,7 +397,7 @@ def convert_vehicle_data(df):
     return melted_df
 
 
-vehicle_data_list = [pivot_df, df_vehicles_june]
+vehicle_data_list = [pivot_df, df_vehicles_month]
 melted_dfs = [convert_vehicle_data(df) for df in vehicle_data_list]
 vehicle_df = pd.concat(melted_dfs, ignore_index=True)
 vehicle_df = vehicle_df[vehicle_df['Customer Location City'].isin(cities)]
