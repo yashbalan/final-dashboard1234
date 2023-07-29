@@ -47,16 +47,16 @@ df_vehicles_june = pd.DataFrame(load_monthly_data(june_vehicles_file_path))
 # Concatenate June and July data for df_vehicles_month
 df_vehicles_month = pd.concat([df_vehicles_june], ignore_index=True)
 
-def load_monthly_data(file_path):
+def load_rank_data(file_path):
     return pd.read_csv(file_path, encoding='latin1')
 
 # Load June data
 june_rank_file_path = 'Rank Data/June Rank Data.csv'
-df_rank_june = pd.DataFrame(load_monthly_data(june_rank_file_path))
+df_rank_june = pd.DataFrame(load_rank_data(june_rank_file_path))
 
 # Load July data
 #july_rank_file_path = 'Rank Data/July Roundtable data.xlsx - Final.csv'
-#df_rank_july = pd.DataFrame(load_monthly_data(july_rank_file_path))
+#df_rank_july = pd.DataFrame(load_rank_data(july_rank_file_path))
 
 # Concatenate June and July data for the rank DataFrame
 df_rank = pd.concat([df_rank_june], ignore_index=True)
