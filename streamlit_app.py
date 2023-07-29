@@ -61,8 +61,6 @@ df_rank_june = pd.DataFrame(load_monthly_data(june_rank_file_path))
 # Concatenate June and July data for the rank DataFrame
 df_rank = pd.concat([df_rank_june], ignore_index=True)
 
-'
-
 df_june.rename(
     columns={'Reach date ': 'Reach date'}, inplace=True)
 df2["Customer Name"] = df2["firstName"].str.cat(df2["lastName"], sep=" ")
