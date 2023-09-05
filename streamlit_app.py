@@ -425,7 +425,7 @@ vehicle_df.to_csv('melted.csv')
 
 #merged_df.to_csv(r"C:\Users\DELL\PycharmProjects\Excel\merdf2.csv")
 
-image = Image.open(r'C:\Users\DELL\Downloads\CustomerboardHop\customerboard\Hpcharge.png')
+image = Image.open(r'Hpcharge.png')
 col1, col2, col3, col4, col5 = st.columns(5)
 col3.image(image, use_column_width=False)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
